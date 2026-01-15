@@ -1,13 +1,15 @@
+#if USE_LUA
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Lua;
 using Lua.Standard;
 using Lua.Unity;
 
-namespace MornLua
+namespace MornLib
 {
     public class MornLuaCore
     {
@@ -25,38 +27,38 @@ namespace MornLua
         {
             AddDefaultFunction(
                 "print",
-                new LuaFunction((context, buffer, _) =>
+                new LuaFunction((context, _) =>
                 {
                     var log = ContextToLog(context);
-                    MornLuaLogger.Log($"print: {log}");
-                    buffer.Span[0] = log;
-                    return new(1);
+                    MornLuaGlobal.Logger.Log($"print: {log}");
+                    context.Return(log);
+                    return new ValueTask<int>(1);
                 }));
             AddDefaultFunction(
                 "warn",
-                new LuaFunction((context, buffer, _) =>
+                new LuaFunction((context, _) =>
                 {
                     var log = ContextToLog(context);
-                    MornLuaLogger.LogError($"warn: {log}");
-                    buffer.Span[0] = log;
-                    return new(1);
+                    MornLuaGlobal.Logger.LogError($"warn: {log}");
+                    context.Return(log);
+                    return new ValueTask<int>(1);
                 }));
             AddDefaultFunction(
                 "error",
-                new LuaFunction((context, buffer, _) =>
+                new LuaFunction((context, _) =>
                 {
                     var log = ContextToLog(context);
-                    MornLuaLogger.LogError($"error: {log}");
-                    buffer.Span[0] = log;
-                    return new(1);
+                    MornLuaGlobal.Logger.LogError($"error: {log}");
+                    context.Return(log);
+                    return new ValueTask<int>(1);
                 }));
             AddDefaultFunction(
                 "wait",
-                new LuaFunction(async (context, _, ct) =>
+                new LuaFunction(async (context, ct) =>
                 {
                     if (context.Arguments.Length < 1)
                     {
-                        MornLuaLogger.LogWarning("wait 関数には少なくとも1つの引数が必要です。");
+                        MornLuaGlobal.Logger.LogWarning("wait 関数には少なくとも1つの引数が必要です。");
                         return 0;
                     }
 
@@ -66,18 +68,17 @@ namespace MornLua
                 }));
             AddDefaultFunction(
                 "coroutine",
-                new LuaFunction(async (context, _, ct) =>
+                new LuaFunction((context, ct) =>
                 {
                     if (context.ArgumentCount != 1)
                     {
-                        MornLuaLogger.LogWarning("NoWait 関数には1つの引数が必要です。");
-                        return 0;
+                        MornLuaGlobal.Logger.LogWarning("NoWait 関数には1つの引数が必要です。");
+                        return new ValueTask<int>(0);
                     }
 
                     var function = context.GetArgument<LuaFunction>(0);
-                    var newState = LuaState.Create();
-                    function.InvokeAsync(newState, Array.Empty<LuaValue>(), ct).AsUniTask().Forget();
-                    return 0;
+                    context.State.CallAsync(function, Array.Empty<LuaValue>(), ct).AsUniTask().Forget();
+                    return new ValueTask<int>(0);
                 }));
         }
 
@@ -101,7 +102,7 @@ namespace MornLua
         {
             if (_functions.ContainsKey(functionName))
             {
-                MornLuaLogger.LogWarning($"{functionName} は既に登録されています。");
+                MornLuaGlobal.Logger.LogWarning($"{functionName} は既に登録されています。");
                 return;
             }
 
@@ -112,7 +113,7 @@ namespace MornLua
         {
             if (_requiredModules.Contains(path))
             {
-                MornLuaLogger.LogWarning($"{path} は既に登録されています。");
+                MornLuaGlobal.Logger.LogWarning($"{path} は既に登録されています。");
                 return;
             }
 
@@ -146,7 +147,8 @@ namespace MornLua
         }
 
         public async UniTask DoStringAsync(string source,
-            Func<LuaState, CancellationToken, UniTask> preExecution = null, CancellationToken ct = default)
+            Func<LuaState, CancellationToken, UniTask> preExecution = null,
+            CancellationToken ct = default)
         {
             var state = await SetUpLuaState(ct);
             if (preExecution != null)
@@ -157,7 +159,8 @@ namespace MornLua
             await state.DoStringAsync(source, cancellationToken: ct);
         }
 
-        public async UniTask DoFileAsync(string path, Func<LuaState, CancellationToken, UniTask> preExecution = null,
+        public async UniTask DoFileAsync(string path,
+            Func<LuaState, CancellationToken, UniTask> preExecution = null,
             CancellationToken ct = default)
         {
             var state = await SetUpLuaState(ct);
@@ -170,7 +173,8 @@ namespace MornLua
         }
 
         public async UniTask DoFileAsync(LuaAsset luaAsset,
-            Func<LuaState, CancellationToken, UniTask> preExecution = null, CancellationToken ct = default)
+            Func<LuaState, CancellationToken, UniTask> preExecution = null,
+            CancellationToken ct = default)
         {
             var state = await SetUpLuaState(ct);
             if (preExecution != null)
@@ -182,3 +186,4 @@ namespace MornLua
         }
     }
 }
+#endif

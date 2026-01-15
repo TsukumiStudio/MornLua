@@ -1,6 +1,6 @@
 {
     "name": "MornLua",
-    "rootNamespace": "MornLua",
+    "rootNamespace": "MornLib",
     "references": [
         "GUID:a3eac051004cc4c6b92cb1b018e08311",
         "GUID:9fb3b15b1474476cbe64c6bd63468fb6",
@@ -13,6 +13,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-    "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.nuskey8.lua.unity",
+            "expression": "",
+            "define": "USE_LUA"
+        }
+    ],
     "noEngineReferences": false
 }
