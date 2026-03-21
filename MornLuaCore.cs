@@ -77,7 +77,7 @@ namespace MornLib
                     }
 
                     var function = context.GetArgument<LuaFunction>(0);
-                    context.State.CallAsync(function, Array.Empty<LuaValue>(), ct).AsUniTask().Forget();
+                    context.State.CallAsync(function, Array.Empty<LuaValue>(), ct).AsTask().AsUniTask().Forget();
                     return new ValueTask<int>(0);
                 }));
         }
