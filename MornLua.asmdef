@@ -4,7 +4,11 @@
     "references": [
         "GUID:a3eac051004cc4c6b92cb1b018e08311",
         "GUID:9fb3b15b1474476cbe64c6bd63468fb6",
-        "GUID:f51ebe6a0ceec4240a699833d6309b23"
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:560b04d1a97f54a4e82edc0cbbb69285",
+        "GUID:dadc2fee866e04157b6aa9c8ff475e67",
+        "GUID:9e24947de15b9834991c9d8411ea37cf",
+        "GUID:6055be8ebefd69e48b49212b09b47b2f"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
@@ -18,6 +22,11 @@
             "name": "com.nuskey8.lua.unity",
             "expression": "",
             "define": "USE_LUA"
+        },
+        {
+            "name": "com.unity.addressables",
+            "expression": "",
+            "define": "USE_ADDRESSABLE"
         }
     ],
     "noEngineReferences": false
