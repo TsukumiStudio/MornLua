@@ -106,7 +106,8 @@ namespace MornLib
             try
             {
                 var handle = Addressables.LoadAssetAsync<Sprite>(address);
-                var sprite = await handle.ToUniTask(cancellationToken: ct);
+                await handle.Task.AsUniTask().AttachExternalCancellation(ct);
+                var sprite = handle.Result;
                 _portraitHandles[speaker] = handle;
                 return sprite;
             }
