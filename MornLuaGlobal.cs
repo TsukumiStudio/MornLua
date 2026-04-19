@@ -18,6 +18,9 @@ namespace MornLib
         [SerializeField] private TMP_FontAsset _defaultFont;
         [SerializeField, Min(0f)] private float _advanceIconBlinkPeriod = 0.8f;
         [SerializeField] private InputActionReference _advanceAction;
+        [SerializeField] private AudioClip _typeSe;
+        [SerializeField, Min(1)] private int _typeSeInterval = 4;
+        [SerializeField] private AudioClip _advanceSe;
         protected override string ModuleName => "MornLua";
         public MornSceneObject LuaNovelScene => _luaNovelScene;
         public string DebugMenuKey => _debugMenuKey;
@@ -25,6 +28,9 @@ namespace MornLib
         public TMP_FontAsset DefaultFont => _defaultFont;
         public float AdvanceIconBlinkPeriod => _advanceIconBlinkPeriod;
         public InputActionReference AdvanceAction => _advanceAction;
+        public AudioClip TypeSe => _typeSe;
+        public int TypeSeInterval => _typeSeInterval;
+        public AudioClip AdvanceSe => _advanceSe;
 
         /// <summary>指定したLuaAssetをノベルシーンで再生する</summary>
         public static async UniTask PlayLuaAsync(

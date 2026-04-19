@@ -130,6 +130,7 @@ namespace MornLib
             string text,
             MornLuaTypewriter.OnRevealCallback onReveal,
             Action onTypewriterFinished,
+            Action onAdvanceConfirmed,
             CancellationToken ct)
         {
             _advanceTcs = new UniTaskCompletionSource();
@@ -153,6 +154,7 @@ namespace MornLib
 
                     onTypewriterFinished?.Invoke();
                     await _advanceTcs.Task;
+                    onAdvanceConfirmed?.Invoke();
                 }
                 catch (OperationCanceledException)
                 {

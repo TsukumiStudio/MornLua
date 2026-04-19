@@ -116,7 +116,14 @@ namespace MornLib
 
         private void RegisterLuaFunctions(MornLuaCore lua)
         {
-            lua.RegisterAsync("wait_submit", async ct => await _runner.WaitAdvanceAsync(ct));
+            lua.RegisterAsync("wait_submit", async ct =>
+            {
+                await _runner.WaitAdvanceAsync(ct);
+                if (!ct.IsCancellationRequested)
+                {
+                    PlayAdvanceSe();
+                }
+            });
             lua.RegisterAsync<string, string>("message", async (speaker, text, ct) =>
             {
                 _portraitView.SetFocus(speaker);
@@ -127,12 +134,25 @@ namespace MornLib
                 }
 
                 _currentBubble.SetAdvanceIconVisible(false);
+                var typeSe = MornLuaGlobal.I.TypeSe;
+                var typeInterval = Mathf.Max(1, MornLuaGlobal.I.TypeSeInterval);
+                var lastPlayed = 0;
                 await _runner.DOMessageAsync(
                     text,
-                    (visibleCount, _) => _currentBubble.SetMessage(
-                        speaker,
-                        visibleCount >= text.Length ? text : text.Substring(0, visibleCount)),
+                    (visibleCount, fastForward) =>
+                    {
+                        _currentBubble.SetMessage(
+                            speaker,
+                            visibleCount >= text.Length ? text : text.Substring(0, visibleCount));
+                        if (typeSe != null && !fastForward && visibleCount > lastPlayed
+                            && (lastPlayed == 0 || visibleCount - lastPlayed >= typeInterval))
+                        {
+                            _seSource.MornPlayOneShot(typeSe);
+                            lastPlayed = visibleCount;
+                        }
+                    },
                     () => _currentBubble.SetAdvanceIconVisible(true),
+                    PlayAdvanceSe,
                     ct);
                 _currentBubble.SetAdvanceIconVisible(false);
             });
@@ -252,6 +272,15 @@ namespace MornLib
 
             _currentBubble.Clear();
             _currentBubbleAddr = addr;
+        }
+
+        private void PlayAdvanceSe()
+        {
+            var se = MornLuaGlobal.I.AdvanceSe;
+            if (se != null)
+            {
+                _seSource.MornPlayOneShot(se);
+            }
         }
 
         private void DestroyCurrentBubble()
