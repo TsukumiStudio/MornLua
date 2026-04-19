@@ -63,7 +63,7 @@ namespace MornLib
                     }
 
                     var seconds = context.GetArgument<float>(0);
-                    await UniTask.Delay(TimeSpan.FromDays(seconds), cancellationToken: ct);
+                    await UniTask.Delay(TimeSpan.FromSeconds(seconds), cancellationToken: ct);
                     return 0;
                 }));
             AddDefaultFunction(

@@ -2,7 +2,9 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Lua.Unity;
+using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
 namespace MornLib
@@ -11,8 +13,18 @@ namespace MornLib
     public sealed class MornLuaGlobal : MornGlobalBase<MornLuaGlobal>
     {
         [SerializeField] private MornSceneObject _luaNovelScene;
+        [SerializeField] private string _debugMenuKey = "MornLuaNovel/再生";
+        [SerializeField] private string _novelLayerName = "Novel";
+        [SerializeField] private TMP_FontAsset _defaultFont;
+        [SerializeField, Min(0f)] private float _advanceIconBlinkPeriod = 0.8f;
+        [SerializeField] private InputActionReference _advanceAction;
         protected override string ModuleName => "MornLua";
         public MornSceneObject LuaNovelScene => _luaNovelScene;
+        public string DebugMenuKey => _debugMenuKey;
+        public int NovelLayer => LayerMask.NameToLayer(_novelLayerName);
+        public TMP_FontAsset DefaultFont => _defaultFont;
+        public float AdvanceIconBlinkPeriod => _advanceIconBlinkPeriod;
+        public InputActionReference AdvanceAction => _advanceAction;
 
         /// <summary>指定したLuaAssetをノベルシーンで再生する</summary>
         public static async UniTask PlayLuaAsync(
@@ -47,10 +59,16 @@ namespace MornLib
                     runner.Scenario = luaAsset;
                     runner.Play();
 
-                    // 再生完了（シーンアンロード）を待機
-                    while (scene.isLoaded)
+                    // 再生完了を待機（IsPlaying が false になるまで）
+                    while (runner != null && runner.IsPlaying)
                     {
                         await UniTask.Yield(ct);
+                    }
+
+                    // Lua再生終了 → シーンを破棄
+                    if (scene.isLoaded)
+                    {
+                        await SceneManager.UnloadSceneAsync(scene).WithCancellation(ct);
                     }
 
                     return;

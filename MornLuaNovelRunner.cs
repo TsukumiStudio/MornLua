@@ -8,6 +8,7 @@ using UniRx;
 using UniRx.Triggers;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 namespace MornLib
@@ -33,11 +34,11 @@ namespace MornLib
         [SerializeField] private Selectable _advanceButton;
         [SerializeField] private bool _autoPlayOnStart = true;
         [SerializeField] private bool _focusAdvanceButtonOnStart = true;
-        [SerializeField] private bool _registerDebugMenu = true;
-        [SerializeField] private string _debugMenuKey = "MornLuaNovel/再生";
         [SerializeField, Min(0f)] private float _defaultCharInterval = 0.04f;
 
         private readonly List<Action<MornLuaCore>> _setupHandlers = new();
+        private readonly List<Func<CancellationToken, UniTask>> _prePlayHandlers = new();
+        private readonly List<Action> _postPlayHandlers = new();
         private UniTaskCompletionSource _advanceTcs;
         private CancellationTokenSource _playCts;
 
@@ -70,6 +71,32 @@ namespace MornLib
             _setupHandlers.Remove(handler);
         }
 
+        /// <summary>
+        /// Lua 実行前に呼ばれる非同期ハンドラを登録する。事前ロード等に使う。
+        /// </summary>
+        public void AddPrePlayHandler(Func<CancellationToken, UniTask> handler)
+        {
+            if (handler == null)
+            {
+                return;
+            }
+
+            _prePlayHandlers.Add(handler);
+        }
+
+        /// <summary>
+        /// Lua 実行終了（成功・キャンセル問わず）に呼ばれるハンドラを登録する。事後解放等に使う。
+        /// </summary>
+        public void AddPostPlayHandler(Action handler)
+        {
+            if (handler == null)
+            {
+                return;
+            }
+
+            _postPlayHandlers.Add(handler);
+        }
+
         public void Play()
         {
             if (_scenario == null)
@@ -99,7 +126,11 @@ namespace MornLib
         /// 1メッセージ分の文字送り＋クリック待ちを行う。<c>message</c> 系Luaハンドラから呼ぶことを想定。
         /// クリックで Phase1 (タイプライター) をスキップ → 全文表示。再クリックで次行へ。
         /// </summary>
-        public async UniTask DOMessageAsync(string text, MornLuaTypewriter.OnRevealCallback onReveal, CancellationToken ct)
+        public async UniTask DOMessageAsync(
+            string text,
+            MornLuaTypewriter.OnRevealCallback onReveal,
+            Action onTypewriterFinished,
+            CancellationToken ct)
         {
             _advanceTcs = new UniTaskCompletionSource();
             using (ct.Register(() => _advanceTcs?.TrySetCanceled()))
@@ -120,6 +151,23 @@ namespace MornLib
                         _advanceTcs = new UniTaskCompletionSource();
                     }
 
+                    onTypewriterFinished?.Invoke();
+                    await _advanceTcs.Task;
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+        }
+
+        /// <summary>クリック1回（Advance）を待機する。</summary>
+        public async UniTask WaitAdvanceAsync(CancellationToken ct)
+        {
+            _advanceTcs = new UniTaskCompletionSource();
+            using (ct.Register(() => _advanceTcs?.TrySetCanceled()))
+            {
+                try
+                {
                     await _advanceTcs.Task;
                 }
                 catch (OperationCanceledException)
@@ -135,16 +183,23 @@ namespace MornLib
                 _advanceButton.OnSubmitAsObservable()
                     .Subscribe(_ => Advance())
                     .AddTo(this);
+                _advanceButton.OnPointerClickAsObservable()
+                    .Subscribe(_ => Advance())
+                    .AddTo(this);
                 if (_focusAdvanceButtonOnStart && EventSystem.current != null)
                 {
                     EventSystem.current.SetSelectedGameObject(_advanceButton.gameObject);
                 }
             }
 
-            if (_registerDebugMenu)
+            var advanceAction = MornLuaGlobal.I.AdvanceAction;
+            if (advanceAction != null && advanceAction.action != null)
             {
-                MornDebugCore.RegisterGUI(_debugMenuKey, DrawDebugMenu, this);
+                advanceAction.action.Enable();
+                advanceAction.action.performed += OnAdvanceActionPerformed;
             }
+
+            MornDebugCore.RegisterGUI(MornLuaGlobal.I.DebugMenuKey, DrawDebugMenu, this);
 
             if (_autoPlayOnStart)
             {
@@ -154,9 +209,20 @@ namespace MornLib
 
         private void OnDestroy()
         {
+            var advanceAction = MornLuaGlobal.I.AdvanceAction;
+            if (advanceAction != null && advanceAction.action != null)
+            {
+                advanceAction.action.performed -= OnAdvanceActionPerformed;
+            }
+
             _playCts?.Cancel();
             _playCts?.Dispose();
             _playCts = null;
+        }
+
+        private void OnAdvanceActionPerformed(InputAction.CallbackContext _)
+        {
+            Advance();
         }
 
         private void DrawDebugMenu()
@@ -188,6 +254,11 @@ namespace MornLib
             try
             {
                 _advanceTcs = null;
+                foreach (var handler in _prePlayHandlers)
+                {
+                    await handler(ct);
+                }
+
                 var lua = new MornLuaCore();
                 foreach (var handler in _setupHandlers)
                 {
@@ -198,6 +269,13 @@ namespace MornLib
             }
             catch (OperationCanceledException)
             {
+            }
+            finally
+            {
+                foreach (var handler in _postPlayHandlers)
+                {
+                    handler();
+                }
             }
         }
     }
