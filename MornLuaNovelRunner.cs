@@ -257,7 +257,7 @@ namespace MornLib
 
                 await lua.DoFileAsync(_scenario, ct: playCt);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
             }
             finally
