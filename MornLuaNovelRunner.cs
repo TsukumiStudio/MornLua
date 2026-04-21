@@ -41,6 +41,7 @@ namespace MornLib
         private readonly List<Action> _postPlayHandlers = new();
         private UniTaskCompletionSource _advanceTcs;
         private CancellationTokenSource _playCts;
+        private int _playVersion;
 
         public LuaAsset Scenario
         {
@@ -97,27 +98,7 @@ namespace MornLib
             _postPlayHandlers.Add(handler);
         }
 
-        public void Play()
-        {
-            if (_scenario == null)
-            {
-                return;
-            }
-
-            _playCts?.Cancel();
-            _playCts?.Dispose();
-            _playCts = CancellationTokenSource.CreateLinkedTokenSource(this.GetCancellationTokenOnDestroy());
-            PlayAsync(_playCts.Token).Forget();
-        }
-
-        public void Stop()
-        {
-            _playCts?.Cancel();
-            _playCts?.Dispose();
-            _playCts = null;
-        }
-
-        public void Advance()
+        private void Advance()
         {
             _advanceTcs?.TrySetResult();
         }
@@ -203,9 +184,9 @@ namespace MornLib
 
             MornDebugCore.RegisterGUI(MornLuaGlobal.I.DebugMenuKey, DrawDebugMenu, this);
 
-            if (_autoPlayOnStart)
+            if (_autoPlayOnStart && !IsPlaying)
             {
-                Play();
+                PlayAsync().Forget();
             }
         }
 
@@ -217,9 +198,7 @@ namespace MornLib
                 advanceAction.action.performed -= OnAdvanceActionPerformed;
             }
 
-            _playCts?.Cancel();
-            _playCts?.Dispose();
-            _playCts = null;
+            CancelCurrentPlay();
         }
 
         private void OnAdvanceActionPerformed(InputAction.CallbackContext _)
@@ -241,24 +220,33 @@ namespace MornLib
             {
                 if (GUILayout.Button("最初から再生"))
                 {
-                    Play();
+                    PlayAsync().Forget();
                 }
 
                 if (GUILayout.Button("停止"))
                 {
-                    Stop();
+                    CancelCurrentPlay();
                 }
             }
         }
 
-        private async UniTaskVoid PlayAsync(CancellationToken ct)
+        public async UniTask PlayAsync(CancellationToken ct = default)
         {
+            if (_scenario == null)
+            {
+                return;
+            }
+
+            CancelCurrentPlay();
+            _playCts = CancellationTokenSource.CreateLinkedTokenSource(ct, this.GetCancellationTokenOnDestroy());
+            var playVersion = ++_playVersion;
+            var playCt = _playCts.Token;
             try
             {
                 _advanceTcs = null;
                 foreach (var handler in _prePlayHandlers)
                 {
-                    await handler(ct);
+                    await handler(playCt);
                 }
 
                 var lua = new MornLuaCore();
@@ -267,7 +255,7 @@ namespace MornLib
                     handler(lua);
                 }
 
-                await lua.DoFileAsync(_scenario, ct: ct);
+                await lua.DoFileAsync(_scenario, ct: playCt);
             }
             catch (OperationCanceledException)
             {
@@ -278,7 +266,21 @@ namespace MornLib
                 {
                     handler();
                 }
+
+                if (_playVersion == playVersion)
+                {
+                    _playCts?.Dispose();
+                    _playCts = null;
+                }
             }
+        }
+
+        private void CancelCurrentPlay()
+        {
+            _playVersion++;
+            _playCts?.Cancel();
+            _playCts?.Dispose();
+            _playCts = null;
         }
     }
 }

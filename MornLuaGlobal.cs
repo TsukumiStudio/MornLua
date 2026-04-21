@@ -63,13 +63,7 @@ namespace MornLib
                 if (runner != null)
                 {
                     runner.Scenario = luaAsset;
-                    runner.Play();
-
-                    // 再生完了を待機（IsPlaying が false になるまで）
-                    while (runner != null && runner.IsPlaying)
-                    {
-                        await UniTask.Yield(ct);
-                    }
+                    await runner.PlayAsync(ct);
 
                     // Lua再生終了 → シーンを破棄
                     if (scene.isLoaded)
