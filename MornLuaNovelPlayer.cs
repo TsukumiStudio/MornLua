@@ -134,16 +134,18 @@ namespace MornLib
                 }
 
                 _currentBubble.SetAdvanceIconVisible(false);
+                _currentBubble.SetMessage(speaker, text);
+                // リッチテキストタグを除いたプレーンテキストでタイプライタを駆動し、
+                // 表示は maxVisibleCharacters で制御してタグ崩れを防ぐ
+                var plainText = _currentBubble.BeginReveal();
                 var typeSe = MornLuaGlobal.I.TypeSe;
                 var typeInterval = Mathf.Max(1, MornLuaGlobal.I.TypeSeInterval);
                 var lastPlayed = 0;
                 await _runner.DOMessageAsync(
-                    text,
+                    plainText,
                     (visibleCount, fastForward) =>
                     {
-                        _currentBubble.SetMessage(
-                            speaker,
-                            visibleCount >= text.Length ? text : text.Substring(0, visibleCount));
+                        _currentBubble.SetVisibleCharacters(visibleCount);
                         if (typeSe != null && !fastForward && visibleCount > lastPlayed
                             && (lastPlayed == 0 || visibleCount - lastPlayed >= typeInterval))
                         {

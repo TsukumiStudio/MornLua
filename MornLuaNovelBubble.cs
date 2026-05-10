@@ -57,6 +57,24 @@ namespace MornLib
         {
             _nameText.text = speakerName;
             _messageText.text = text;
+            _messageText.maxVisibleCharacters = int.MaxValue;
+        }
+
+        /// <summary>
+        /// 文字送りを開始する前に呼ぶ。リッチテキストタグを除いたプレーンテキストを返し、
+        /// `maxVisibleCharacters` を0にして見えなくする。Player はこのプレーンテキストの長さでタイプライタを駆動する。
+        /// </summary>
+        public string BeginReveal()
+        {
+            _messageText.ForceMeshUpdate();
+            _messageText.maxVisibleCharacters = 0;
+            return _messageText.GetParsedText() ?? string.Empty;
+        }
+
+        /// <summary>文字送り中、現在見せる文字数を更新する（リッチテキストタグはカウント外）。</summary>
+        public void SetVisibleCharacters(int count)
+        {
+            _messageText.maxVisibleCharacters = Mathf.Max(0, count);
         }
 
         public void SetAdvanceIconVisible(bool visible)
@@ -75,6 +93,7 @@ namespace MornLib
         {
             _nameText.text = string.Empty;
             _messageText.text = string.Empty;
+            _messageText.maxVisibleCharacters = int.MaxValue;
             SetAdvanceIconVisible(false);
         }
 
