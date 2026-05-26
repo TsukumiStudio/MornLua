@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Lua;
 using Lua.Unity;
 using UniRx;
 using UniRx.Triggers;
@@ -31,6 +32,7 @@ namespace MornLib
     public sealed class MornLuaNovelRunner : MonoBehaviour
     {
         [SerializeField] private LuaAsset _scenario;
+        [SerializeField] private LuaAsset[] _commonScripts;
         [SerializeField] private Selectable _advanceButton;
         [SerializeField] private bool _autoPlayOnStart = true;
         [SerializeField] private bool _focusAdvanceButtonOnStart = true;
@@ -166,9 +168,6 @@ namespace MornLib
                 _advanceButton.OnSubmitAsObservable()
                     .Subscribe(_ => Advance())
                     .AddTo(this);
-                _advanceButton.OnPointerClickAsObservable()
-                    .Subscribe(_ => Advance())
-                    .AddTo(this);
                 if (_focusAdvanceButtonOnStart && EventSystem.current != null)
                 {
                     EventSystem.current.SetSelectedGameObject(_advanceButton.gameObject);
@@ -255,7 +254,7 @@ namespace MornLib
                     handler(lua);
                 }
 
-                await lua.DoFileAsync(_scenario, ct: playCt);
+                await lua.DoFileAsync(_scenario, ExecuteCommonScriptsAsync, playCt);
             }
             catch (OperationCanceledException) when (!ct.IsCancellationRequested)
             {
@@ -272,6 +271,19 @@ namespace MornLib
                     _playCts?.Dispose();
                     _playCts = null;
                 }
+            }
+        }
+
+        private async UniTask ExecuteCommonScriptsAsync(LuaState state, CancellationToken ct)
+        {
+            foreach (var script in _commonScripts)
+            {
+                if (script == null)
+                {
+                    continue;
+                }
+
+                await state.DoStringAsync(script.Text, cancellationToken: ct);
             }
         }
 
